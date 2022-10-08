@@ -862,8 +862,12 @@ import sys
 import threading
 import time
 import warnings
-from functools import cached_property
 from concurrent.futures import ThreadPoolExecutor
+
+try:
+    from functools import cached_property
+except ImportError:
+    from cached_property import cached_property
 
 import numpy
 
@@ -876,7 +880,12 @@ except ImportError:
     except ImportError:
         import _imagecodecs as imagecodecs
 
-from typing import TYPE_CHECKING, BinaryIO, cast, final, overload
+from typing import TYPE_CHECKING, BinaryIO, cast, overload
+try:
+    from typing import final
+except ImportError:
+    # no-op
+    final = lambda f: f
 
 if TYPE_CHECKING:
     from typing import (
@@ -1080,7 +1089,6 @@ def imread(
 
 def imwrite(
     file: str | os.PathLike | FileHandle | BinaryIO,
-    /,
     data: ArrayLike
     | Iterator[numpy.ndarray | None]
     | Iterator[bytes]
@@ -1239,7 +1247,6 @@ def imsave(*args, **kwargs):
 
 def memmap(
     filename: str | os.PathLike,
-    /,
     *,
     shape: Sequence[int] | None = None,
     dtype: numpy.dtype | None = None,
@@ -1424,7 +1431,6 @@ class TiffWriter:
     def __init__(
         self,
         file: str | os.PathLike | FileHandle | BinaryIO,
-        /,
         *,
         bigtiff: bool = False,
         byteorder: ByteOrder | None = None,
@@ -2424,12 +2430,12 @@ class TiffWriter:
         packints = False
         if bilevel:
             if bitspersample is not None and bitspersample != 1:
-                raise ValueError(f'{bitspersample=} must be 1 for bilevel')
+                raise ValueError(f'bitspersample={bitspersample} must be 1 for bilevel')
             bitspersample = 1
         elif compressiontag == 7 and datadtype == 'uint16':
             if bitspersample is not None and bitspersample != 12:
                 raise ValueError(
-                    f'{bitspersample=} must be 12 for JPEG compressed uint16'
+                    f'bitspersample={bitspersample} must be 12 for JPEG compressed uint16'
                 )
             bitspersample = 12  # use 12-bit JPEG compression
         elif bitspersample is None:
@@ -2437,16 +2443,16 @@ class TiffWriter:
         elif (
             datadtype.kind != 'u' or datadtype.itemsize > 4
         ) and bitspersample != datadtype.itemsize * 8:
-            raise ValueError(f'{bitspersample=} does not match {datadtype=}')
+            raise ValueError(f'bitspersample={bitspersample} does not match datadtype={datadtype}')
         elif not (
             bitspersample > {1: 0, 2: 8, 4: 16}[datadtype.itemsize]
             and bitspersample <= datadtype.itemsize * 8
         ):
-            raise ValueError(f'{bitspersample=} out of range of {datadtype=}')
+            raise ValueError(f'bitspersample={bitspersample} out of range of datadtype={datadtype}')
         elif compression:
             if bitspersample != datadtype.itemsize * 8:
                 raise ValueError(
-                    f'{bitspersample=} cannot be used with compression'
+                    f'bitspersample={bitspersample} cannot be used with compression'
                 )
         elif bitspersample != datadtype.itemsize * 8:
             packints = True
@@ -3289,7 +3295,7 @@ class TiffWriter:
         )
         self.write(*args, **kwargs)
 
-    def overwrite_description(self, description: str, /) -> None:
+    def overwrite_description(self, description: str) -> None:
         """Overwrite value of last ImageDescription tag.
 
         Can be used to write OME-XML after writing images.
@@ -3541,7 +3547,6 @@ class TiffWriter:
         count: int | None,
         value: Any,
         writeonce: bool = False,
-        /,
     ) -> None:
         """Append (code, ifdentry, ifdvalue, writeonce) to tags list.
 
@@ -3655,7 +3660,7 @@ class TiffWriter:
         return struct.pack(fmt, *val)
 
     def _bytecount_format(
-        self, bytecounts: Sequence[int], compression: int, /
+        self, bytecounts: Sequence[int], compression: int
     ) -> str:
         """Return small bytecount format."""
         if len(bytecounts) == 1:
@@ -3807,7 +3812,6 @@ class TiffFile:
     def __init__(
         self,
         file: str | os.PathLike | FileHandle | BinaryIO,
-        /,
         *,
         mode: Literal['r', 'r+'] | None = None,
         name: str | None = None,
@@ -4274,7 +4278,7 @@ class TiffFile:
         keys = []
         seriesdict: dict[int, list[TiffPage | TiffFrame]] = {}
 
-        def addpage(page: TiffPage | TiffFrame, /) -> None:
+        def addpage(page: TiffPage | TiffFrame) -> None:
             # add page to seriesdict
             if not page.shape:  # or product(page.shape) == 0:
                 return
@@ -4336,7 +4340,6 @@ class TiffFile:
             reshape: tuple[int, ...],
             name: str,
             truncated: bool | None,
-            /,
         ) -> None:
             # append TiffPageSeries to series
             assert isinstance(pages[0], TiffPage)
@@ -4378,7 +4381,6 @@ class TiffFile:
         def detect_series(
             pages: TiffPages | list[TiffPage | TiffFrame | None],
             series: list[TiffPageSeries],
-            /,
         ) -> list[TiffPageSeries] | None:
 
             shape: tuple[int, ...] | None
@@ -4749,12 +4751,12 @@ class TiffFile:
             scale = scale[0] / scale[1]  # rational
             if meta['FileTag'] == 2:
                 # squary root data format
-                def transform(a: numpy.ndarray, /) -> numpy.ndarray:
+                def transform(a: numpy.ndarray) -> numpy.ndarray:
                     return a.astype('float32') ** 2 * scale
 
             else:
 
-                def transform(a: numpy.ndarray, /) -> numpy.ndarray:
+                def transform(a: numpy.ndarray) -> numpy.ndarray:
                     return a.astype('float32') * scale
 
         else:
@@ -5818,7 +5820,7 @@ class TiffFile:
             )
             i += 1
 
-    def __getattr__(self, name: str, /) -> bool:
+    def __getattr__(self, name: str) -> bool:
         """Return `is_flag` attributes from first page."""
         if name[3:] in TIFF.PAGE_FLAGS:
             if not self.pages:
@@ -6418,7 +6420,6 @@ class TiffPages:
     def __init__(
         self,
         arg: TiffFile | TiffPage | TiffFrame,
-        /,
         *,
         index: Sequence[int] | int | None = None,
     ) -> None:
@@ -6512,7 +6513,7 @@ class TiffPages:
         return self._cache
 
     @cache.setter
-    def cache(self, value: bool, /) -> None:
+    def cache(self, value: bool) -> None:
         value = bool(value)
         if self._cache and not value:
             self._clear()
@@ -6524,7 +6525,7 @@ class TiffPages:
         return self._tiffpage == TiffFrame and TiffFrame is not TiffPage
 
     @useframes.setter
-    def useframes(self, value: bool, /) -> None:
+    def useframes(self, value: bool) -> None:
         self._tiffpage = TiffFrame if value else TiffPage
 
     @property
@@ -6532,7 +6533,7 @@ class TiffPages:
         """TiffPage used as keyframe for new TiffFrames."""
         return self._keyframe
 
-    def set_keyframe(self, index: int, /) -> None:
+    def set_keyframe(self, index: int) -> None:
         """Set keyframe to TiffPage specified by `index`.
 
         If not found in the cache, the TiffPage at `index` is loaded from file
@@ -6575,7 +6576,6 @@ class TiffPages:
     def get(
         self,
         key: int,
-        /,
         default: TiffPage | TiffFrame | None = None,
         *,
         validate: int = 0,
@@ -6611,7 +6611,7 @@ class TiffPages:
                 raise
         return default
 
-    def _load(self, keyframe: TiffPage | bool | None = True, /) -> None:
+    def _load(self, keyframe: TiffPage | bool | None = True) -> None:
         """Read all remaining pages from file."""
         assert self.parent is not None
         if self._cached:
@@ -6693,7 +6693,7 @@ class TiffPages:
                     f'({exc.__class__.__name__}: {exc})'
                 )
 
-    def _clear(self, fully: bool = True, /) -> None:
+    def _clear(self, fully: bool = True) -> None:
         """Delete all but first page from cache. Set keyframe to first page."""
         pages = self.pages
         if not pages:
@@ -6711,7 +6711,7 @@ class TiffPages:
                     pages[i] = page.offset
         self._cached = False
 
-    def _seek(self, index: int, /) -> int:
+    def _seek(self, index: int) -> int:
         """Seek file to offset of page specified by index and return offset."""
         assert self.parent is not None
 
@@ -6798,7 +6798,6 @@ class TiffPages:
     def _getlist(
         self,
         key: int | slice | Iterable[int] | None = None,
-        /,
         useframes: bool = True,
         validate: bool = True,
     ) -> list[TiffPage | TiffFrame]:
@@ -6853,7 +6852,6 @@ class TiffPages:
     def _getitem(
         self,
         key: int,
-        /,
         *,
         validate: int = 0,  # hash
         cache: bool = False,
@@ -6897,17 +6895,17 @@ class TiffPages:
         return page
 
     @overload
-    def __getitem__(self, key: int, /) -> TiffPage | TiffFrame:
+    def __getitem__(self, key: int) -> TiffPage | TiffFrame:
         ...
 
     @overload
     def __getitem__(
-        self, key: slice | Iterable[int], /
+        self, key: slice | Iterable[int]
     ) -> list[TiffPage | TiffFrame]:
         ...
 
     def __getitem__(
-        self, key: int | slice | Iterable[int], /
+        self, key: int | slice | Iterable[int]
     ) -> TiffPage | TiffFrame | list[TiffPage | TiffFrame]:
         pages = self.pages
         getitem = self._getitem
@@ -7060,7 +7058,6 @@ class TiffPage:
     def __init__(
         self,
         parent: TiffFile,
-        /,
         index: int | Sequence[int],
         *,
         keyframe: TiffPage | None = None,
@@ -7497,7 +7494,7 @@ class TiffPage:
         if self.hash in self.parent._parent._decoders:
             return self.parent._parent._decoders[self.hash]
 
-        def cache(decode, /):
+        def cache(decode):
             self.parent._parent._decoders[self.hash] = decode
             return decode
 
@@ -7607,7 +7604,7 @@ class TiffPage:
             depth = (imdepth + stdepth - 1) // stdepth
 
             def indices(
-                segmentindex: int, /
+                segmentindex: int
             ) -> tuple[
                 tuple[int, int, int, int, int], tuple[int, int, int, int]
             ]:
@@ -7627,7 +7624,6 @@ class TiffPage:
                 data: numpy.ndarray,
                 indices: tuple[int, int, int, int, int],
                 shape: tuple[int, int, int, int],
-                /,
             ) -> numpy.ndarray:
                 # return reshaped tile or raise TiffFileError
                 size = shape[0] * shape[1] * shape[2] * shape[3]
@@ -7670,7 +7666,7 @@ class TiffPage:
                 )
 
             def pad(
-                data: numpy.ndarray, shape: tuple[int, int, int, int], /
+                data: numpy.ndarray, shape: tuple[int, int, int, int]
             ) -> tuple[numpy.ndarray, tuple[int, int, int, int]]:
                 # pad tile to shape
                 if data.shape == shape:
@@ -7680,7 +7676,7 @@ class TiffPage:
                 return data, shape
 
             def pad_none(
-                shape: tuple[int, int, int, int], /
+                shape: tuple[int, int, int, int]
             ) -> tuple[int, int, int, int]:
                 # return shape of tile
                 return shape
@@ -7690,7 +7686,7 @@ class TiffPage:
             length = (imlength + stlength - 1) // stlength
 
             def indices(
-                segmentindex: int, /
+                segmentindex: int
             ) -> tuple[
                 tuple[int, int, int, int, int], tuple[int, int, int, int]
             ]:
@@ -7714,7 +7710,6 @@ class TiffPage:
                 data: numpy.ndarray,
                 indices: tuple[int, int, int, int, int],
                 shape: tuple[int, int, int, int],
-                /,
             ) -> numpy.ndarray:
                 # return reshaped strip or raise TiffFileError
                 size = shape[0] * shape[1] * shape[2] * shape[3]
@@ -7740,7 +7735,7 @@ class TiffPage:
                 )
 
             def pad(
-                data: numpy.ndarray, shape: tuple[int, int, int, int], /
+                data: numpy.ndarray, shape: tuple[int, int, int, int]
             ) -> tuple[numpy.ndarray, tuple[int, int, int, int]]:
                 # pad strip length to rowsperstrip
                 shape = (shape[0], stlength, shape[2], shape[3])
@@ -7756,7 +7751,7 @@ class TiffPage:
                 return data, shape
 
             def pad_none(
-                shape: tuple[int, int, int, int], /
+                shape: tuple[int, int, int, int]
             ) -> tuple[int, int, int, int]:
                 # return shape of strip
                 return (shape[0], stlength, shape[2], shape[3])
@@ -7783,7 +7778,6 @@ class TiffPage:
             def decode_jpeg(
                 data: bytes | None,
                 index: int,
-                /,
                 *,
                 jpegtables: bytes | None = None,
                 jpegheader: bytes | None = None,
@@ -7821,7 +7815,6 @@ class TiffPage:
             def decode_jetraw(
                 data: bytes | None,
                 index: int,
-                /,
                 *,
                 jpegtables: bytes | None = None,
                 jpegheader: bytes | None = None,
@@ -7859,7 +7852,6 @@ class TiffPage:
             def decode_image(
                 data: bytes | None,
                 index: int,
-                /,
                 *,
                 jpegtables: bytes | None = None,
                 jpegheader: bytes | None = None,
@@ -7901,7 +7893,7 @@ class TiffPage:
                 f'{self.parent.byteorder}f{dtype.itemsize // 2}'
             )
 
-            def unpack(data: bytes, /) -> numpy.ndarray:
+            def unpack(data: bytes) -> numpy.ndarray:
                 # return complex integer as numpy.complex
                 return numpy.frombuffer(data, itype).astype(ftype).view(dtype)
 
@@ -7915,7 +7907,7 @@ class TiffPage:
                 # raw byte order
                 dtype = numpy.dtype(self._dtype.char)
 
-            def unpack(data: bytes, /) -> numpy.ndarray:
+            def unpack(data: bytes) -> numpy.ndarray:
                 # return numpy array from buffer
                 try:
                     # read only numpy array
@@ -7928,7 +7920,7 @@ class TiffPage:
 
         elif isinstance(self.bitspersample, tuple):
             # e.g., RGB 565
-            def unpack(data: bytes, /) -> numpy.ndarray:
+            def unpack(data: bytes) -> numpy.ndarray:
                 # return numpy array from packed integers
                 return unpack_rgb(data, dtype, self.bitspersample)
 
@@ -7938,13 +7930,13 @@ class TiffPage:
                 # floatpred_decode requires numpy.float24, which does not exist
                 raise NotImplementedError('unpredicting float24 not supported')
 
-            def unpack(data: bytes, /) -> numpy.ndarray:
+            def unpack(data: bytes) -> numpy.ndarray:
                 # return numpy.float32 array from float24
                 return imagecodecs.float24_decode(data, self.parent.byteorder)
 
         else:
             # bilevel and packed integers
-            def unpack(data: bytes, /) -> numpy.ndarray:
+            def unpack(data: bytes) -> numpy.ndarray:
                 # return NumPy array from packed integers
                 return imagecodecs.packints_decode(
                     data, dtype, self.bitspersample, stwidth * samples
@@ -7953,7 +7945,6 @@ class TiffPage:
         def decode_other(
             data: bytes | None,
             index: int,
-            /,
             *,
             jpegtables: bytes | None = None,
             jpegheader: bytes | None = None,
@@ -8330,7 +8321,7 @@ class TiffPage:
         return data
 
     def _gettags(
-        self, codes: Container[int] | None = None, /, lock=None
+        self, codes: Container[int] | None = None, lock=None
     ) -> list[tuple[int, TiffTag]]:
         """Return list of (code, TiffTag)."""
         return [
@@ -8756,7 +8747,7 @@ class TiffPage:
                 attr = name.upper()
                 break
 
-        def tostr(name: str, /, skip: int = 1) -> str:
+        def tostr(name: str, skip: int = 1) -> str:
             obj = getattr(self, name)
             if obj == skip:
                 return ''
@@ -9410,7 +9401,6 @@ class TiffFrame:
     def __init__(
         self,
         parent: TiffFile,
-        /,
         index: int | Sequence[int],
         *,
         offset: int | None = None,
@@ -9480,7 +9470,6 @@ class TiffFrame:
     def _gettags(
         self,
         codes: Container[int] | None = None,
-        /,
         lock: threading.RLock | None = None,
     ) -> list[tuple[int, TiffTag]]:
         """Return list of (code, TiffTag) from file."""
@@ -9609,7 +9598,7 @@ class TiffFrame:
         return self._keyframe
 
     @keyframe.setter
-    def keyframe(self, keyframe: TiffPage, /) -> None:
+    def keyframe(self, keyframe: TiffPage) -> None:
         if self._keyframe == keyframe:
             return
         if self._keyframe is not None:
@@ -9834,7 +9823,6 @@ class TiffTag:
         count: int,
         value: Any,
         valueoffset: int,
-        /,
     ) -> None:
         self.parent = parent
         self.offset = int(offset)
@@ -9851,7 +9839,6 @@ class TiffTag:
     def fromfile(
         cls,
         parent: TiffFile,
-        /,
         *,
         offset: int | None = None,
         header: bytes | None = None,
@@ -9960,7 +9947,6 @@ class TiffTag:
         dtype: int,
         count: int,
         valueoffset: int,
-        /,
     ) -> Any:
         """Read tag value from file."""
         try:
@@ -10011,7 +9997,7 @@ class TiffTag:
 
     @staticmethod
     def _process_value(
-        value: Any, code: int, dtype: int, offset: int, /
+        value: Any, code: int, dtype: int, offset: int
     ) -> Any:
         """Process tag value."""
         if (
@@ -10089,7 +10075,7 @@ class TiffTag:
         return self._value
 
     @value.setter
-    def value(self, value: Any, /) -> None:
+    def value(self, value: Any) -> None:
         self._value = value
 
     @property
@@ -10161,7 +10147,6 @@ class TiffTag:
     def overwrite(
         self,
         value: Any,
-        /,
         *,
         dtype: DATATYPE | int | str | None = None,
         erase: bool = True,
@@ -10469,7 +10454,7 @@ class TiffTags:
         self._dict = {}
         self._list = [self._dict]
 
-    def add(self, tag: TiffTag, /) -> None:
+    def add(self, tag: TiffTag) -> None:
         """Add tag."""
         code = tag.code
         for d in self._list:
@@ -10496,7 +10481,6 @@ class TiffTags:
     def valueof(
         self,
         key: int | str,
-        /,
         default: Any = None,
         index: int | None = None,
     ) -> Any:
@@ -10524,7 +10508,6 @@ class TiffTags:
     def get(
         self,
         key: int | str,
-        /,
         default: TiffTag | None = None,
         index: int | None = None,
     ) -> TiffTag | None:
@@ -10560,7 +10543,7 @@ class TiffTags:
                 return tag
         return default
 
-    def getall(self, key: int | str, /, default=None) -> list[TiffTag] | None:
+    def getall(self, key: int | str, default=None) -> list[TiffTag] | None:
         """Return list of all tags by code or name if exists, else default.
 
         Parameters:
@@ -10589,7 +10572,7 @@ class TiffTags:
                 break
         return result if result else default
 
-    def __getitem__(self, key: int | str, /) -> TiffTag:
+    def __getitem__(self, key: int | str) -> TiffTag:
         """Return first tag by code or name. Raise KeyError if not found."""
         if key in self._dict:
             return self._dict[cast(int, key)]
@@ -10600,12 +10583,12 @@ class TiffTags:
                 return tag
         raise KeyError(key)
 
-    def __setitem__(self, code: int, tag: TiffTag, /) -> None:
+    def __setitem__(self, code: int, tag: TiffTag) -> None:
         """Add tag."""
         assert tag.code == code
         self.add(tag)
 
-    def __delitem__(self, key: int | str, /) -> None:
+    def __delitem__(self, key: int | str) -> None:
         """Delete all tags by code or name."""
         found = False
         for tags in self._list:
@@ -10630,7 +10613,7 @@ class TiffTags:
             raise KeyError(key)
         return
 
-    def __contains__(self, item: object, /) -> bool:
+    def __contains__(self, item: object) -> bool:
         """Return if tag is in map."""
         if item in self._dict:
             return True
@@ -10733,7 +10716,6 @@ class TiffTagRegistry:
     def __init__(
         self,
         arg: TiffTagRegistry | dict[int, str] | Sequence[tuple[int, str]],
-        /,
     ) -> None:
         self._dict = {}
         self._list = [self._dict]
@@ -10742,7 +10724,6 @@ class TiffTagRegistry:
     def update(
         self,
         arg: TiffTagRegistry | dict[int, str] | Sequence[tuple[int, str]],
-        /,
     ):
         """Add mapping of codes to names to registry.
 
@@ -10758,7 +10739,7 @@ class TiffTagRegistry:
         for code, name in arg:
             self.add(code, name)
 
-    def add(self, code: int, name: str, /) -> None:
+    def add(self, code: int, name: str) -> None:
         """Add code and name to registry."""
         for d in self._list:
             if code in d and d[code] == name:
@@ -10778,19 +10759,19 @@ class TiffTagRegistry:
         return sorted(items, key=lambda i: i[0])  # type: ignore
 
     @overload
-    def get(self, key: int, /, default: None) -> str | None:
+    def get(self, key: int, default: None) -> str | None:
         ...
 
     @overload
-    def get(self, key: str, /, default: None) -> int | None:
+    def get(self, key: str, default: None) -> int | None:
         ...
 
     @overload
-    def get(self, key: int, /, default: str) -> str:
+    def get(self, key: int, default: str) -> str:
         ...
 
     def get(
-        self, key: int | str, /, default: str | None = None
+        self, key: int | str, default: str | None = None
     ) -> str | int | None:
         """Return first code or name if exists, else default.
 
@@ -10805,19 +10786,19 @@ class TiffTagRegistry:
         return default
 
     @overload
-    def getall(self, key: int, /, default: None) -> list[str] | None:
+    def getall(self, key: int, default: None) -> list[str] | None:
         ...
 
     @overload
-    def getall(self, key: str, /, default: None) -> list[int] | None:
+    def getall(self, key: str, default: None) -> list[int] | None:
         ...
 
     @overload
-    def getall(self, key: int, /, default: list[str]) -> list[str]:
+    def getall(self, key: int, default: list[str]) -> list[str]:
         ...
 
     def getall(
-        self, key: int | str, /, default: list[str] | None = None
+        self, key: int | str, default: list[str] | None = None
     ) -> list[str] | list[int] | None:
         """Return list of all codes or names if exists, else default.
 
@@ -10830,21 +10811,21 @@ class TiffTagRegistry:
         return result if result else default  # type: ignore
 
     @overload
-    def __getitem__(self, key: int, /) -> str:
+    def __getitem__(self, key: int) -> str:
         ...
 
     @overload
-    def __getitem__(self, key: str, /) -> int:
+    def __getitem__(self, key: str) -> int:
         ...
 
-    def __getitem__(self, key: int | str, /) -> int | str:
+    def __getitem__(self, key: int | str) -> int | str:
         """Return first code or name. Raise KeyError if not found."""
         for d in self._list:
             if key in d:
                 return d[key]
         raise KeyError(key)
 
-    def __delitem__(self, key: int | str, /) -> None:
+    def __delitem__(self, key: int | str) -> None:
         """Delete all tags of code or name."""
         found = False
         for d in self._list:
@@ -10856,7 +10837,7 @@ class TiffTagRegistry:
         if not found:
             raise KeyError(key)
 
-    def __contains__(self, item: int | str, /) -> bool:
+    def __contains__(self, item: int | str) -> bool:
         """Return if code or name is in registry."""
         for d in self._list:
             if item in d:
@@ -10951,7 +10932,6 @@ class TiffPageSeries:
     def __init__(
         self,
         pages: Sequence[TiffPage | TiffFrame | None],
-        /,
         shape: Sequence[int] | None = None,
         dtype: numpy.dtype | str | None = None,
         axes: str | None = None,
@@ -11021,7 +11001,6 @@ class TiffPageSeries:
         axes: Sequence[str],
         coords: Mapping[str, numpy.ndarray | None] | None = None,
         squeeze: bool = True,
-        /,
     ) -> None:
         """Set shape, axes, and coords."""
         self._squeeze = bool(squeeze)
@@ -11209,7 +11188,7 @@ class TiffPageSeries:
         # a workaround to keep the old interface working
         return self
 
-    def _getitem(self, key: int, /) -> TiffPage | TiffFrame | None:
+    def _getitem(self, key: int) -> TiffPage | TiffFrame | None:
         """Return specified page of series from cache or file."""
         key = int(key)
         if key < 0:
@@ -11223,18 +11202,18 @@ class TiffPageSeries:
 
     @overload
     def __getitem__(
-        self, key: int | numpy.integer, /
+        self, key: int | numpy.integer
     ) -> TiffPage | TiffFrame | None:
         ...
 
     @overload
     def __getitem__(
-        self, key: slice | Iterable[int], /
+        self, key: slice | Iterable[int]
     ) -> list[TiffPage | TiffFrame | None]:
         ...
 
     def __getitem__(
-        self, key: int | numpy.integer | slice | Iterable[int], /
+        self, key: int | numpy.integer | slice | Iterable[int]
     ) -> TiffPage | TiffFrame | list[TiffPage | TiffFrame | None] | None:
         """Return specified page(s)."""
         if isinstance(key, (int, numpy.integer)):
@@ -11309,7 +11288,6 @@ class ZarrStore(collections.abc.MutableMapping):
 
     def __init__(
         self,
-        /,
         *,
         fillvalue: int | float | None = None,
         chunkmode: CHUNKMODE | int | str | None = None,
@@ -11359,13 +11337,13 @@ class ZarrStore(collections.abc.MutableMapping):
     def __len__(self) -> int:
         return len(self._store)
 
-    def __contains__(self, key, /) -> bool:
+    def __contains__(self, key) -> bool:
         return key in self._store
 
-    def __delitem__(self, key, /) -> None:
+    def __delitem__(self, key) -> None:
         raise PermissionError('ZarrStore is read-only')
 
-    def __getitem__(self, key: str, /) -> Any:
+    def __getitem__(self, key: str) -> Any:
         if key in self._store:
             return self._store[key]
         if key[-7:] == '.zarray' or key[-7:] == '.zgroup':
@@ -11373,11 +11351,11 @@ class ZarrStore(collections.abc.MutableMapping):
             raise KeyError(key)
         return self._getitem(key)
 
-    def _getitem(self, key: str, /) -> numpy.ndarray:
+    def _getitem(self, key: str) -> numpy.ndarray:
         """Return chunk from file."""
         raise NotImplementedError
 
-    def __setitem__(self, key: str, value, /) -> None:
+    def __setitem__(self, key: str, value) -> None:
         if key in self._store:
             raise KeyError(key)
         if key[-7:] == '.zarray' or key[-7:] == '.zgroup':
@@ -11385,7 +11363,7 @@ class ZarrStore(collections.abc.MutableMapping):
             raise KeyError(key)
         return self._setitem(key, value)
 
-    def _setitem(self, key: str, value: bytes, /) -> None:
+    def _setitem(self, key: str, value: bytes) -> None:
         """Write chunk from file."""
         raise NotImplementedError
 
@@ -11399,7 +11377,6 @@ class ZarrStore(collections.abc.MutableMapping):
         shape: tuple[int, ...],
         dtype: numpy.dtype | str,
         fillvalue: int | float | None,
-        /,
     ) -> numpy.ndarray:
         """Return empty chunk."""
         if fillvalue is None or fillvalue == 0:
@@ -11410,7 +11387,7 @@ class ZarrStore(collections.abc.MutableMapping):
         return chunk  # .tobytes()
 
     @staticmethod
-    def _dtype_str(dtype: numpy.dtype, /) -> str:
+    def _dtype_str(dtype: numpy.dtype) -> str:
         """Return dtype as string with native byte order."""
         if dtype.itemsize == 1:
             byteorder = '|'
@@ -11419,7 +11396,7 @@ class ZarrStore(collections.abc.MutableMapping):
         return byteorder + dtype.str[1:]
 
     @staticmethod
-    def _json(obj: Any, /) -> bytes:
+    def _json(obj: Any) -> bytes:
         """Serialize object to JSON formatted string."""
         return json.dumps(
             obj,
@@ -11430,7 +11407,7 @@ class ZarrStore(collections.abc.MutableMapping):
         ).encode('ascii')
 
     @staticmethod
-    def _value(value: Any, dtype: numpy.dtype, /) -> Any:
+    def _value(value: Any, dtype: numpy.dtype) -> Any:
         """Return value which is serializable to JSON."""
         if value is None:
             return value
@@ -11456,7 +11433,7 @@ class ZarrStore(collections.abc.MutableMapping):
 
     @staticmethod
     def _ndindex(
-        shape: tuple[int, ...], chunks: tuple[int, ...], /
+        shape: tuple[int, ...], chunks: tuple[int, ...]
     ) -> Iterator[str]:
         """Return iterator over all chunk index strings."""
         assert len(shape) == len(chunks)
@@ -11517,7 +11494,6 @@ class ZarrTiffStore(ZarrStore):
     def __init__(
         self,
         arg: TiffPage | TiffFrame | TiffPageSeries,
-        /,
         *,
         level: int | None = None,
         chunkmode: CHUNKMODE | int | str | None = None,
@@ -11663,7 +11639,6 @@ class ZarrTiffStore(ZarrStore):
     def write_fsspec(
         self,
         jsonfile: str | os.PathLike | TextIO,
-        /,
         url: str,
         *,
         groupname: str | None = None,
@@ -11996,7 +11971,7 @@ class ZarrTiffStore(ZarrStore):
         if not hasattr(jsonfile, 'write'):
             fh.close()
 
-    def _getitem(self, key: str, /) -> numpy.ndarray:
+    def _getitem(self, key: str) -> numpy.ndarray:
         """Return chunk from file."""
         keyframe, page, chunkindex, offset, bytecount = self._parse_key(key)
 
@@ -12047,7 +12022,7 @@ class ZarrTiffStore(ZarrStore):
             raise RuntimeError(f'{chunk.size} != {product(chunks)}')
         return chunk  # .tobytes()
 
-    def _setitem(self, key: str, value: bytes, /) -> None:
+    def _setitem(self, key: str, value: bytes) -> None:
         """Write chunk to file."""
         if not self._writable:
             raise PermissionError('ZarrStore is read-only')
@@ -12065,7 +12040,7 @@ class ZarrTiffStore(ZarrStore):
         self._filecache.write(page.parent.filehandle, offset, value)
 
     def _parse_key(
-        self, key: str, /
+        self, key: str
     ) -> tuple[
         TiffPage,
         TiffPage | TiffFrame | None,
@@ -12111,7 +12086,7 @@ class ZarrTiffStore(ZarrStore):
         bytecount = page.databytecounts[chunkindex]
         return page.keyframe, page, chunkindex, offset, bytecount
 
-    def _indices(self, key: str, series: TiffPageSeries, /) -> tuple[int, int]:
+    def _indices(self, key: str, series: TiffPageSeries) -> tuple[int, int]:
         """Return page and strile indices from Zarr chunk index."""
         keyframe = series.keyframe
         shape = series.get_shape(self._squeeze)
@@ -12170,7 +12145,7 @@ class ZarrTiffStore(ZarrStore):
 
     @staticmethod
     def _chunks(
-        chunks: tuple[int, ...], shape: tuple[int, ...], /
+        chunks: tuple[int, ...], shape: tuple[int, ...]
     ) -> tuple[int, ...]:
         """Return chunks with same length as shape."""
         ndim = len(shape)
@@ -12272,7 +12247,6 @@ class ZarrFileSequenceStore(ZarrStore):
     def __init__(
         self,
         arg: FileSequence,
-        /,
         *,
         fillvalue: int | float | None = None,
         chunkmode: CHUNKMODE | int | str | None = None,
@@ -12328,7 +12302,7 @@ class ZarrFileSequenceStore(ZarrStore):
             }
         )
 
-    def _getitem(self, key: str, /) -> numpy.ndarray:
+    def _getitem(self, key: str) -> numpy.ndarray:
         """Return chunk from file."""
         indices = tuple(int(i) for i in key.split('.'))
         filename = self._lookup.get(indices, None)
@@ -12340,13 +12314,12 @@ class ZarrFileSequenceStore(ZarrStore):
             chunk = self._imread(filename, **self._kwargs)
         return chunk
 
-    def _setitem(self, key: str, value: bytes, /) -> None:
+    def _setitem(self, key: str, value: bytes) -> None:
         raise PermissionError('ZarrStore is read-only')
 
     def write_fsspec(
         self,
         jsonfile: str | os.PathLike | TextIO,
-        /,
         url: str,
         *,
         groupname: str | None = None,
@@ -12790,14 +12763,14 @@ class FileSequence:
         return len(self.files)
 
     @overload
-    def __getitem__(self, key: int, /) -> str:
+    def __getitem__(self, key: int) -> str:
         ...
 
     @overload
-    def __getitem__(self, key: slice, /) -> list[str]:
+    def __getitem__(self, key: slice) -> list[str]:
         ...
 
-    def __getitem__(self, key: int | slice, /) -> str | list[str]:
+    def __getitem__(self, key: int | slice) -> str | list[str]:
         return self.files[key]
 
     def __enter__(self) -> FileSequence:
@@ -12946,7 +12919,7 @@ class TiledSequence:
             assert len(self.shape) == len(self.axes)
 
     def indices(
-        self, indices: Iterable[Sequence[int]], /
+        self, indices: Iterable[Sequence[int]]
     ) -> Iterator[tuple[int, ...]]:
         """Return iterator over chunk indices of tiled sequence.
 
@@ -12969,7 +12942,7 @@ class TiledSequence:
                 yield tuple(index)
 
     def slices(
-        self, indices: Iterable[Sequence[int]], /
+        self, indices: Iterable[Sequence[int]]
     ) -> Iterator[tuple[int | slice, ...]]:
         """Return iterator over slices of chunks in tiled sequence.
 
@@ -13063,7 +13036,6 @@ class FileHandle:
     def __init__(
         self,
         file: str | os.PathLike | FileHandle | BinaryIO,
-        /,
         mode: Literal['r', 'r+', 'w', 'rb', 'r+b', 'wb'] | None = None,
         *,
         name: str | None = None,
@@ -13210,7 +13182,7 @@ class FileHandle:
         assert self._fh is not None
         return self._fh.tell() - self._offset
 
-    def seek(self, offset: int, /, whence: int = 0) -> int:
+    def seek(self, offset: int, whence: int = 0) -> int:
         """Set file's current position.
 
         Parameters:
@@ -13237,7 +13209,7 @@ class FileHandle:
                 )
         return self._fh.seek(offset, whence)
 
-    def read(self, size: int = -1, /) -> bytes:
+    def read(self, size: int = -1) -> bytes:
         """Return bytes read from file.
 
         Parameters:
@@ -13251,7 +13223,7 @@ class FileHandle:
         assert self._fh is not None
         return self._fh.read(size)
 
-    def readinto(self, buffer, /) -> int:
+    def readinto(self, buffer) -> int:
         """Read bytes from file into buffer.
 
         Parameters:
@@ -13264,7 +13236,7 @@ class FileHandle:
         assert self._fh is not None
         return self._fh.readinto(buffer)  # type: ignore
 
-    def write(self, buffer: bytes, /) -> int:
+    def write(self, buffer: bytes) -> int:
         """Write bytes to file and return number of bytes written.
 
         Parameters:
@@ -13417,7 +13389,7 @@ class FileHandle:
             )
         return record[0] if shape == 1 else record
 
-    def write_empty(self, size: int, /) -> int:
+    def write_empty(self, size: int) -> int:
         """Append null-bytes to file.
 
         The file position must be at the end of the file.
@@ -13433,7 +13405,7 @@ class FileHandle:
         self._fh.write(b'\x00')
         return size
 
-    def write_array(self, data: numpy.ndarray, /) -> int:
+    def write_array(self, data: numpy.ndarray) -> int:
         """Write NumPy array to file.
 
         Parameters:
@@ -13454,7 +13426,6 @@ class FileHandle:
         self,
         offsets: Sequence[int],
         bytecounts: Sequence[int],
-        /,
         indices: Sequence[int] | None = None,
         *,
         sort: bool = True,
@@ -13615,7 +13586,7 @@ class FileHandle:
         self.close()
         self._file = None
 
-    def __getattr__(self, name: str, /) -> Any:
+    def __getattr__(self, name: str) -> Any:
         """Return attribute from underlying file object."""
         if self._offset:
             warnings.warn(
@@ -13678,10 +13649,10 @@ class FileHandle:
         return self._lock
 
     @lock.setter
-    def lock(self, value: bool, /) -> None:
+    def lock(self, value: bool) -> None:
         self.set_lock(value)
 
-    def set_lock(self, value: bool, /) -> None:
+    def set_lock(self, value: bool) -> None:
         if bool(value) == isinstance(self._lock, NullContext):
             self._lock = threading.RLock() if value else NullContext()
 
@@ -13735,7 +13706,7 @@ class FileCache:
         self.size = 8 if size is None else int(size)
         self.lock = NullContext() if lock is None else lock
 
-    def open(self, fh: FileHandle, /) -> None:
+    def open(self, fh: FileHandle) -> None:
         """Open file, re-open if necessary."""
         with self.lock:
             if fh in self.files:
@@ -13749,7 +13720,7 @@ class FileCache:
                 self.keep.add(fh)
                 self.past.append(fh)
 
-    def close(self, fh: FileHandle, /) -> None:
+    def close(self, fh: FileHandle) -> None:
         """Close least recently used open files."""
         with self.lock:
             if fh in self.files:
@@ -13768,7 +13739,6 @@ class FileCache:
     def read(
         self,
         fh: FileHandle,
-        /,
         offset: int,
         bytecount: int,
         whence: int = 0,
@@ -13815,7 +13785,6 @@ class FileCache:
     def write(
         self,
         fh: FileHandle,
-        /,
         offset: int,
         data: bytes,
         whence: int = 0,
@@ -14053,14 +14022,14 @@ class StoredShape:
         return 6
 
     @overload
-    def __getitem__(self, key: int, /) -> int:
+    def __getitem__(self, key: int) -> int:
         ...
 
     @overload
-    def __getitem__(self, key: slice, /) -> tuple[int, ...]:
+    def __getitem__(self, key: slice) -> tuple[int, ...]:
         ...
 
-    def __getitem__(self, key: int | slice, /) -> int | tuple[int, ...]:
+    def __getitem__(self, key: int | slice) -> int | tuple[int, ...]:
         return (
             self.frames,
             self.separate_samples,
@@ -14070,7 +14039,7 @@ class StoredShape:
             self.contig_samples,
         )[key]
 
-    def __eq__(self, other, /) -> bool:
+    def __eq__(self, other) -> bool:
         return (
             isinstance(other, StoredShape)
             and self.frames == other.frames
@@ -14759,7 +14728,7 @@ class OmeXml:
         return xml
 
     @staticmethod
-    def _escape(value: Any, /) -> str:
+    def _escape(value: Any) -> str:
         """Return escaped string of value."""
         if not isinstance(value, str):
             value = str(value)
@@ -14779,7 +14748,7 @@ class OmeXml:
         return f'<{name}>{OmeXml._escape(value)}</{name}>'
 
     @staticmethod
-    def _elements(metadata: dict[str, Any], /, *names: str) -> str:
+    def _elements(metadata: dict[str, Any], *names: str) -> str:
         """Return XML formatted elements."""
         if not metadata:
             return ''
@@ -14790,7 +14759,6 @@ class OmeXml:
     def _attribute(
         metadata: dict[str, Any],
         name: str,
-        /,
         index: int | None = None,
         default: Any = None,
     ) -> str:
@@ -14811,7 +14779,6 @@ class OmeXml:
     def _attributes(
         metadata: dict[str, Any],
         index_: int | None,
-        /,
         *names: str,
     ) -> str:
         """Return XML formatted attributes."""
@@ -14831,7 +14798,6 @@ class OmeXml:
     @staticmethod
     def validate(
         omexml: str,
-        /,
         omexsd: bytes | None = None,
         assert_: bool = True,
         *,
@@ -14910,7 +14876,7 @@ class CompressionCodec(collections.abc.Mapping):
         self._codecs = {1: identityfunc}
         self._encode = bool(encode)
 
-    def __getitem__(self, key: int, /) -> Callable[..., Any]:
+    def __getitem__(self, key: int) -> Callable[..., Any]:
         if key in self._codecs:
             return self._codecs[key]
         try:
@@ -15038,7 +15004,7 @@ class CompressionCodec(collections.abc.Mapping):
         self._codecs[key] = codec
         return codec
 
-    def __contains__(self, key, /) -> bool:
+    def __contains__(self, key) -> bool:
         try:
             self[key]
         except KeyError:
@@ -15068,7 +15034,7 @@ class PredictorCodec(collections.abc.Mapping):
         self._codecs = {1: identityfunc}
         self._encode = bool(encode)
 
-    def __getitem__(self, key: int, /) -> Callable[..., Any]:
+    def __getitem__(self, key: int) -> Callable[..., Any]:
         if key in self._codecs:
             return self._codecs[key]
         try:
@@ -15155,7 +15121,7 @@ class PredictorCodec(collections.abc.Mapping):
         self._codecs[key] = codec
         return codec
 
-    def __contains__(self, key, /) -> bool:
+    def __contains__(self, key) -> bool:
         try:
             self[key]
         except KeyError:
@@ -17814,7 +17780,6 @@ TIFF = _TIFF()
 
 def read_tags(
     fh: FileHandle,
-    /,
     byteorder: ByteOrder,
     offsetsize: int,
     tagnames: TiffTagRegistry,
@@ -17988,7 +17953,7 @@ def read_tags(
         if offset == 0:
             break
         if offset >= fh.size:
-            log_warning(f'<tifffile.read_tags> invalid next page {offset=}')
+            log_warning(f'<tifffile.read_tags> invalid next page offset={offset}')
             break
         fh.seek(offset)
 
@@ -18001,7 +17966,6 @@ def read_exif_ifd(
     dtype: int,
     count: int,
     offsetsize: int,
-    /,
 ) -> dict[str, Any]:
     """Read EXIF tags from file."""
     exif = read_tags(fh, byteorder, offsetsize, TIFF.EXIF_TAGS, maxifds=1)[0]
@@ -18028,7 +17992,6 @@ def read_gps_ifd(
     dtype: int,
     count: int,
     offsetsize: int,
-    /,
 ) -> dict[str, Any]:
     """Read GPS tags from file."""
     return read_tags(fh, byteorder, offsetsize, TIFF.GPS_TAGS, maxifds=1)[0]
@@ -18040,7 +18003,6 @@ def read_interoperability_ifd(
     dtype: int,
     count: int,
     offsetsize: int,
-    /,
 ) -> dict[str, Any]:
     """Read Interoperability tags from file."""
     return read_tags(fh, byteorder, offsetsize, TIFF.IOP_TAGS, maxifds=1)[0]
@@ -18052,7 +18014,6 @@ def read_bytes(
     dtype: int,
     count: int,
     offsetsize: int,
-    /,
 ) -> bytes:
     """Read tag data from file."""
     count *= numpy.dtype(
@@ -18073,7 +18034,6 @@ def read_utf8(
     dtype: int,
     count: int,
     offsetsize: int,
-    /,
 ) -> str:
     """Read unicode tag value from file."""
     return fh.read(count).decode()
@@ -18085,7 +18045,6 @@ def read_numpy(
     dtype: int,
     count: int,
     offsetsize: int,
-    /,
 ) -> numpy.ndarray:
     """Read NumPy array tag value from file."""
     return fh.read_array(
@@ -18099,7 +18058,6 @@ def read_colormap(
     dtype: int,
     count: int,
     offsetsize: int,
-    /,
 ) -> numpy.ndarray:
     """Read ColorMap or TransferFunction tag value from file."""
     cmap = fh.read_array(byteorder + TIFF.DATA_FORMATS[dtype][-1], count)
@@ -18114,7 +18072,6 @@ def read_json(
     dtype: int,
     count: int,
     offsetsize: int,
-    /,
 ) -> Any:
     """Read JSON tag value from file."""
     data = fh.read(count)
@@ -18131,7 +18088,6 @@ def read_mm_header(
     dtype: int,
     count: int,
     offsetsize: int,
-    /,
 ) -> dict[str, Any]:
     """Read FluoView mm_header tag value from file."""
     meta = recarray2dict(
@@ -18158,7 +18114,6 @@ def read_mm_stamp(
     dtype: int,
     count: int,
     offsetsize: int,
-    /,
 ) -> numpy.ndarray:
     """Read FluoView mm_stamp tag value from file."""
     return fh.read_array(byteorder + 'f8', 8)
@@ -18170,7 +18125,6 @@ def read_uic1tag(
     dtype: int,
     count: int,
     offsetsize: int,
-    /,
     planecount: int = 0,
 ) -> dict[str, Any]:
     """Read MetaMorph STK UIC1Tag value from file.
@@ -18203,7 +18157,6 @@ def read_uic2tag(
     dtype: int,
     count: int,
     offsetsize: int,
-    /,
 ) -> dict[str, numpy.ndarray]:
     """Read MetaMorph STK UIC2Tag value from file."""
     if dtype != 5 or byteorder != '<':
@@ -18224,7 +18177,6 @@ def read_uic3tag(
     dtype: int,
     count: int,
     offsetsize: int,
-    /,
 ) -> dict[str, numpy.ndarray]:
     """Read MetaMorph STK UIC3Tag value from file."""
     if dtype != 5 or byteorder != '<':
@@ -18239,7 +18191,6 @@ def read_uic4tag(
     dtype: int,
     count: int,
     offsetsize: int,
-    /,
 ) -> dict[str, numpy.ndarray]:
     """Read MetaMorph STK UIC4Tag value from file."""
     if dtype != 4 or byteorder != '<':
@@ -18255,7 +18206,7 @@ def read_uic4tag(
 
 
 def read_uic_tag(
-    fh: FileHandle, tagid: int, planecount: int, offset: bool, /
+    fh: FileHandle, tagid: int, planecount: int, offset: bool
 ) -> tuple[str, Any]:
     """Read single UIC tag value from file and return tag name and value.
 
@@ -18367,7 +18318,7 @@ def read_uic_tag(
     return name, value
 
 
-def read_uic_image_property(fh: FileHandle, /) -> dict[str, Any]:
+def read_uic_image_property(fh: FileHandle) -> dict[str, Any]:
     """Read UIC ImagePropertyEx tag value from file."""
     # TODO: test this
     size = struct.unpack('B', fh.read(1))[0]
@@ -18388,7 +18339,6 @@ def read_cz_lsminfo(
     dtype: int,
     count: int,
     offsetsize: int,
-    /,
 ) -> dict[str, Any]:
     """Read CZ_LSMINFO tag value from file."""
     if byteorder != '<':
@@ -18430,25 +18380,25 @@ def read_cz_lsminfo(
     return result
 
 
-def read_lsm_channeldatatypes(fh: FileHandle, /) -> numpy.ndarray:
+def read_lsm_channeldatatypes(fh: FileHandle) -> numpy.ndarray:
     """Read LSM channel data type from file."""
     size = struct.unpack('<I', fh.read(4))[0]
     return fh.read_array('<u4', count=size)
 
 
-def read_lsm_channelwavelength(fh: FileHandle, /) -> numpy.ndarray:
+def read_lsm_channelwavelength(fh: FileHandle) -> numpy.ndarray:
     """Read LSM channel wavelength ranges from file."""
     size = struct.unpack('<i', fh.read(4))[0]
     return fh.read_array('<2f8', count=size)
 
 
-def read_lsm_positions(fh: FileHandle, /) -> numpy.ndarray:
+def read_lsm_positions(fh: FileHandle) -> numpy.ndarray:
     """Read LSM positions from file."""
     size = struct.unpack('<I', fh.read(4))[0]
     return fh.read_array('<3f8', count=size)
 
 
-def read_lsm_timestamps(fh: FileHandle, /) -> numpy.ndarray:
+def read_lsm_timestamps(fh: FileHandle) -> numpy.ndarray:
     """Read LSM time stamps from file."""
     size, count = struct.unpack('<ii', fh.read(8))
     if size != (8 + 8 * count):
@@ -18460,7 +18410,7 @@ def read_lsm_timestamps(fh: FileHandle, /) -> numpy.ndarray:
     return fh.read_array('<f8', count=count)
 
 
-def read_lsm_eventlist(fh: FileHandle, /) -> list[tuple[float, int, str]]:
+def read_lsm_eventlist(fh: FileHandle) -> list[tuple[float, int, str]]:
     """Read LSM events from file and return as list of (time, type, text)."""
     count = struct.unpack('<II', fh.read(8))[1]
     events = []
@@ -18472,7 +18422,7 @@ def read_lsm_eventlist(fh: FileHandle, /) -> list[tuple[float, int, str]]:
     return events
 
 
-def read_lsm_channelcolors(fh: FileHandle, /) -> dict[str, Any]:
+def read_lsm_channelcolors(fh: FileHandle) -> dict[str, Any]:
     """Read LSM ChannelColors structure from file."""
     result = {'Mono': False, 'Colors': [], 'ColorNames': []}
     pos = fh.tell()
@@ -18502,7 +18452,7 @@ def read_lsm_channelcolors(fh: FileHandle, /) -> dict[str, Any]:
     return result
 
 
-def read_lsm_lookuptable(fh: FileHandle, /) -> dict[str, Any]:
+def read_lsm_lookuptable(fh: FileHandle) -> dict[str, Any]:
     """Read LSM lookup tables from file."""
     result: dict[str, Any] = {}
     (
@@ -18560,7 +18510,7 @@ def read_lsm_lookuptable(fh: FileHandle, /) -> dict[str, Any]:
     return result
 
 
-def read_lsm_scaninfo(fh: FileHandle, /) -> dict[str, Any]:
+def read_lsm_scaninfo(fh: FileHandle) -> dict[str, Any]:
     """Read LSM ScanInfo structure from file."""
     value: Any
     block: dict[str, Any] = {}
@@ -18613,7 +18563,7 @@ def read_lsm_scaninfo(fh: FileHandle, /) -> dict[str, Any]:
 
 
 def read_sis(
-    fh: FileHandle, byteorder: ByteOrder, dtype, count: int, offsetsize: int, /
+    fh: FileHandle, byteorder: ByteOrder, dtype, count: int, offsetsize: int
 ) -> dict[str, Any]:
     """Read OlympusSIS structure from file.
 
@@ -18667,7 +18617,7 @@ def read_sis(
 
 
 def read_sis_ini(
-    fh: FileHandle, byteorder: ByteOrder, dtype, count: int, offsetsize: int, /
+    fh: FileHandle, byteorder: ByteOrder, dtype, count: int, offsetsize: int
 ) -> dict[str, Any]:
     """Read OlympusSIS INI string from file."""
     inistr = bytes2str(stripnull(fh.read(count)))
@@ -18681,7 +18631,7 @@ def read_sis_ini(
 
 
 def read_tvips_header(
-    fh: FileHandle, byteorder: ByteOrder, dtype, count: int, offsetsize: int, /
+    fh: FileHandle, byteorder: ByteOrder, dtype, count: int, offsetsize: int
 ) -> dict[str, Any]:
     """Read TVIPS EM-MENU headers from file."""
     result: dict[str, Any] = {}
@@ -18717,7 +18667,7 @@ def read_tvips_header(
 
 
 def read_fei_metadata(
-    fh: FileHandle, byteorder: ByteOrder, dtype, count: int, offsetsize: int, /
+    fh: FileHandle, byteorder: ByteOrder, dtype, count: int, offsetsize: int
 ) -> dict[str, Any]:
     """Read FEI SFEG/HELIOS headers from file."""
     result: dict[str, Any] = {}
@@ -18738,7 +18688,7 @@ def read_fei_metadata(
 
 
 def read_cz_sem(
-    fh: FileHandle, byteorder: ByteOrder, dtype, count: int, offsetsize: int, /
+    fh: FileHandle, byteorder: ByteOrder, dtype, count: int, offsetsize: int
 ) -> dict[str, Any]:
     """Read Zeiss SEM tag from file.
 
@@ -18787,7 +18737,7 @@ def read_cz_sem(
 
 
 def read_nih_image_header(
-    fh: FileHandle, byteorder: ByteOrder, dtype, count: int, offsetsize: int, /
+    fh: FileHandle, byteorder: ByteOrder, dtype, count: int, offsetsize: int
 ) -> dict[str, Any]:
     """Read NIH_IMAGE_HEADER tag value from file."""
     a = fh.read_record(TIFF.NIH_IMAGE_HEADER, byteorder=byteorder)
@@ -18799,7 +18749,7 @@ def read_nih_image_header(
 
 
 def read_scanimage_metadata(
-    fh: FileHandle, /
+    fh: FileHandle
 ) -> tuple[dict[str, Any], dict[str, Any], int]:
     """Read ScanImage BigTIFF v3 or v4 static and ROI metadata from file.
 
@@ -18842,7 +18792,7 @@ def read_scanimage_metadata(
     return frame_data, roi_data, version
 
 
-def read_micromanager_metadata(fh: FileHandle | BinaryIO, /) -> dict[str, Any]:
+def read_micromanager_metadata(fh: FileHandle | BinaryIO) -> dict[str, Any]:
     """Read MicroManager non-TIFF settings from file.
 
     The settings can be used to read image data without parsing the TIFF file.
@@ -18983,7 +18933,7 @@ def read_micromanager_metadata(fh: FileHandle | BinaryIO, /) -> dict[str, Any]:
     return result
 
 
-def read_metaseries_catalog(fh: FileHandle | BinaryIO, /) -> None:
+def read_metaseries_catalog(fh: FileHandle | BinaryIO) -> None:
     """Read MetaSeries non-TIFF hint catalog from file.
 
     Raise ValueError if the file does not contain a valid hint catalog.
@@ -18994,7 +18944,7 @@ def read_metaseries_catalog(fh: FileHandle | BinaryIO, /) -> None:
 
 
 def imagej_metadata_tag(
-    metadata: dict[str, Any], byteorder: ByteOrder, /
+    metadata: dict[str, Any], byteorder: ByteOrder
 ) -> tuple[
     tuple[int, int, int, bytes, bool], tuple[int, int, int, bytes, bool]
 ]:
@@ -19035,16 +18985,16 @@ def imagej_metadata_tag(
     bytecount_list = [0]
     body_list = []
 
-    def _string(data: str, byteorder: ByteOrder, /) -> bytes:
+    def _string(data: str, byteorder: ByteOrder) -> bytes:
         return data.encode('utf-16' + {'>': 'be', '<': 'le'}[byteorder])
 
-    def _doubles(data: Sequence[float], byteorder: ByteOrder, /) -> bytes:
+    def _doubles(data: Sequence[float], byteorder: ByteOrder) -> bytes:
         return struct.pack(f'{byteorder}{len(data)}d', *data)
 
-    def _ndarray(data: numpy.ndarray, byteorder: ByteOrder, /) -> bytes:
+    def _ndarray(data: numpy.ndarray, byteorder: ByteOrder) -> bytes:
         return data.tobytes()
 
-    def _bytes(data: bytes, byteorder: ByteOrder, /) -> bytes:
+    def _bytes(data: bytes, byteorder: ByteOrder) -> bytes:
         return data
 
     metadata_types: tuple[
@@ -19098,7 +19048,7 @@ def imagej_metadata_tag(
 
 
 def imagej_metadata(
-    data: bytes, bytecounts: Sequence[int], byteorder: ByteOrder, /
+    data: bytes, bytecounts: Sequence[int], byteorder: ByteOrder
 ) -> dict[str, Any]:
     """Return IJMetadata tag value.
 
@@ -19136,16 +19086,16 @@ def imagej_metadata(
 
     """
 
-    def _string(data: bytes, byteorder: ByteOrder, /) -> str:
+    def _string(data: bytes, byteorder: ByteOrder) -> str:
         return data.decode('utf-16' + {'>': 'be', '<': 'le'}[byteorder])
 
-    def _doubles(data: bytes, byteorder: ByteOrder, /) -> tuple[float, ...]:
+    def _doubles(data: bytes, byteorder: ByteOrder) -> tuple[float, ...]:
         return struct.unpack(byteorder + ('d' * (len(data) // 8)), data)
 
-    def _lut(data: bytes, byteorder: ByteOrder, /) -> numpy.ndarray:
+    def _lut(data: bytes, byteorder: ByteOrder) -> numpy.ndarray:
         return numpy.frombuffer(data, 'uint8').reshape(-1, 256)
 
-    def _bytes(data: bytes, byteorder: ByteOrder, /) -> bytes:
+    def _bytes(data: bytes, byteorder: ByteOrder) -> bytes:
         return data
 
     # big-endian
@@ -19198,7 +19148,7 @@ def imagej_metadata(
     return result
 
 
-def imagej_description_metadata(description: str, /) -> dict[str, Any]:
+def imagej_description_metadata(description: str) -> dict[str, Any]:
     r"""Return metatata from ImageJ image description.
 
     Raise ValueError if not a valid ImageJ description.
@@ -19209,7 +19159,7 @@ def imagej_description_metadata(description: str, /) -> dict[str, Any]:
 
     """
 
-    def _bool(val, /):
+    def _bool(val):
         return {'true': True, 'false': False}[val.lower()]
 
     result: dict[str, Any] = {}
@@ -19235,7 +19185,6 @@ def imagej_description_metadata(description: str, /) -> dict[str, Any]:
 
 def imagej_description(
     shape: Sequence[int],
-    /,
     axes: str | None = None,
     rgb: bool | None = None,
     colormaped: bool = False,
@@ -19341,7 +19290,6 @@ def imagej_description(
 
 def imagej_shape(
     shape: Sequence[int],
-    /,
     *,
     rgb: bool | None = None,
     axes: str | None = None,
@@ -19402,7 +19350,6 @@ def jpeg_decode_colorspace(
     planarconfig: int,
     extrasamples: tuple[int, ...],
     jfif: bool,
-    /,
 ) -> tuple[int | None, int | str | None]:
     """Return JPEG and output color space for `jpeg_decode` function."""
     colorspace: int | None = None
@@ -19428,7 +19375,7 @@ def jpeg_decode_colorspace(
     return colorspace, outcolorspace
 
 
-def jpeg_shape(jpeg: bytes, /) -> tuple[int, int, int, int]:
+def jpeg_shape(jpeg: bytes) -> tuple[int, int, int, int]:
     """Return bitdepth and shape of JPEG image."""
     i = 0
     while True and i < len(jpeg):
@@ -19464,7 +19411,7 @@ def jpeg_shape(jpeg: bytes, /) -> tuple[int, int, int, int]:
     raise ValueError('no SOF marker found')
 
 
-def ndpi_jpeg_tile(jpeg: bytes, /) -> tuple[int, int, bytes]:
+def ndpi_jpeg_tile(jpeg: bytes) -> tuple[int, int, bytes]:
     """Return tile shape and JPEG header from JPEG with restart markers."""
     marker: int
     length: int
@@ -19540,7 +19487,7 @@ def ndpi_jpeg_tile(jpeg: bytes, /) -> tuple[int, int, bytes]:
     return tilelength, tilewidth, jpegheader
 
 
-def shaped_description(shape: Sequence[int], /, **metadata) -> str:
+def shaped_description(shape: Sequence[int], **metadata) -> str:
     """Return JSON image description from data shape and other metadata.
 
     Return UTF-8 encoded JSON.
@@ -19553,7 +19500,7 @@ def shaped_description(shape: Sequence[int], /, **metadata) -> str:
     return json.dumps(metadata)  # .encode()
 
 
-def shaped_description_metadata(description: str, /) -> dict[str, Any]:
+def shaped_description_metadata(description: str) -> dict[str, Any]:
     """Return metatata from JSON formatted image description.
 
     Raise ValueError if `description` is of unknown format.
@@ -19577,7 +19524,6 @@ def shaped_description_metadata(description: str, /) -> dict[str, Any]:
 
 def fluoview_description_metadata(
     description: str,
-    /,
     ignoresections: Container[str] | None = None,
 ) -> dict[str, Any]:
     r"""Return metatata from FluoView image description.
@@ -19648,7 +19594,7 @@ def fluoview_description_metadata(
     return result
 
 
-def pilatus_description_metadata(description: str, /) -> dict[str, Any]:
+def pilatus_description_metadata(description: str) -> dict[str, Any]:
     """Return metatata from Pilatus image description.
 
     Return metadata from Pilatus pixel array detectors by Dectris, created
@@ -19694,7 +19640,7 @@ def pilatus_description_metadata(description: str, /) -> dict[str, Any]:
     return result
 
 
-def svs_description_metadata(description: str, /) -> dict[str, Any]:
+def svs_description_metadata(description: str) -> dict[str, Any]:
     """Return metatata from Aperio image description.
 
     The Aperio image description format is unspecified. Expect failures.
@@ -19714,7 +19660,7 @@ def svs_description_metadata(description: str, /) -> dict[str, Any]:
     return result
 
 
-def stk_description_metadata(description: str, /) -> list[dict[str, Any]]:
+def stk_description_metadata(description: str) -> list[dict[str, Any]]:
     """Return metadata from MetaMorph image description.
 
     The MetaMorph image description format is unspecified. Expect failures.
@@ -19750,7 +19696,7 @@ def stk_description_metadata(description: str, /) -> list[dict[str, Any]]:
     return result
 
 
-def metaseries_description_metadata(description: str, /) -> dict[str, Any]:
+def metaseries_description_metadata(description: str) -> dict[str, Any]:
     """Return metatata from MetaSeries image description."""
     if not description.startswith('<MetaData>'):
         raise ValueError('invalid MetaSeries image description')
@@ -19769,7 +19715,7 @@ def metaseries_description_metadata(description: str, /) -> dict[str, Any]:
         # 'colorref':
     }
 
-    def parse(root, result, /):
+    def parse(root, result):
         # recursive
         for child in root:
             attrib = child.attrib
@@ -19795,12 +19741,12 @@ def metaseries_description_metadata(description: str, /) -> dict[str, Any]:
     return adict
 
 
-def scanimage_description_metadata(description: str, /) -> Any:
+def scanimage_description_metadata(description: str) -> Any:
     """Return metatata from ScanImage image description."""
     return matlabstr2py(description)
 
 
-def scanimage_artist_metadata(artist: str, /) -> dict[str, Any] | None:
+def scanimage_artist_metadata(artist: str) -> dict[str, Any] | None:
     """Return metatata from ScanImage artist tag."""
     try:
         return json.loads(artist)
@@ -19812,14 +19758,14 @@ def scanimage_artist_metadata(artist: str, /) -> dict[str, Any] | None:
     return None
 
 
-def olympusini_metadata(inistr: str, /) -> dict[str, Any]:
+def olympusini_metadata(inistr: str) -> dict[str, Any]:
     """Return OlympusSIS metadata from INI string.
 
     No specification is available.
 
     """
 
-    def keyindex(key: str, /) -> tuple[str, int]:
+    def keyindex(key: str) -> tuple[str, int]:
         # split key into name and index
         index = 0
         i = len(key.rstrip('0123456789'))
@@ -19920,7 +19866,7 @@ def olympusini_metadata(inistr: str, /) -> dict[str, Any]:
 
 
 def astrotiff_description_metadata(
-    description: str, /, sep: str = ':'
+    description: str, sep: str = ':'
 ) -> dict[str, Any]:
     """Return metatata from AstroTIFF image description."""
     logmsg = '<tifffile.astrotiff_description_metadata> '
@@ -20002,7 +19948,7 @@ def astrotiff_description_metadata(
 
 
 def streak_description_metadata(
-    description: str, fh: FileHandle, /
+    description: str, fh: FileHandle
 ) -> dict[str, Any]:
     """Return metatata from Hamamatsu streak image description."""
     section_pattern = re.compile(
@@ -20061,7 +20007,6 @@ def streak_description_metadata(
 
 def unpack_rgb(
     data: bytes,
-    /,
     dtype: numpy.dtype | str | None = None,
     bitspersample: tuple[int, ...] | None = None,
     rescale: bool = True,
@@ -20124,7 +20069,7 @@ def unpack_rgb(
 
 
 def apply_colormap(
-    image: numpy.ndarray, colormap: numpy.ndarray, /, contig: bool = True
+    image: numpy.ndarray, colormap: numpy.ndarray, contig: bool = True
 ) -> numpy.ndarray:
     """Return palette-colored image.
 
@@ -20156,7 +20101,6 @@ def apply_colormap(
 
 def parse_filenames(
     files: Sequence[str],
-    /,
     pattern: str,
     axesorder: Sequence[int] | None = None,
     categories: dict[str, dict[str, int]] | None = None,
@@ -20231,7 +20175,7 @@ def parse_filenames(
     if categories is None:
         categories = {}
 
-    def parse(fname, /) -> tuple[tuple[str, ...], tuple[int, ...]]:
+    def parse(fname) -> tuple[tuple[str, ...], tuple[int, ...]]:
         # return axes names and indices from file name
         assert categories is not None
         dims: list[str] = []
@@ -20314,13 +20258,13 @@ def parse_filenames(
     return dims, shape, indices, files
 
 
-def iter_images(data: numpy.ndarray, /) -> Iterator[numpy.ndarray]:
+def iter_images(data: numpy.ndarray) -> Iterator[numpy.ndarray]:
     """Return iterator over pages in data array of normalized shape."""
     yield from data
 
 
 def iter_tiles(
-    data: numpy.ndarray, tile: tuple[int, ...], tiles: tuple[int, ...], /
+    data: numpy.ndarray, tile: tuple[int, ...], tiles: tuple[int, ...]
 ) -> Iterator[numpy.ndarray]:
     """Return iterator over tiles in data array of normalized shape."""
     if not 1 < len(tile) < 4:
@@ -20372,7 +20316,6 @@ def encode_tiles(
     dtype: numpy.dtype,
     maxworkers: int,
     buffersize: int | None,
-    /,
 ) -> Iterator[bytes]:
     """Return iterator over encoded tiles."""
     if numtiles <= 0:
@@ -20392,7 +20335,7 @@ def encode_tiles(
 
     tilesize = product(shape) * dtype.itemsize
 
-    def func(tile: numpy.ndarray | None, /) -> bytes:
+    def func(tile: numpy.ndarray | None) -> bytes:
         if tile is None:
             return b''
         if tile.nbytes != tilesize:
@@ -20453,7 +20396,6 @@ def encode_strips(
     encode: Callable[[numpy.ndarray], bytes],
     rowsperstrip: int,
     maxworkers: int,
-    /,
 ) -> Iterator[bytes]:
     """Return iterator over encoded strips."""
     numstrips = (pagedata.shape[-3] + rowsperstrip - 1) // rowsperstrip
@@ -20481,7 +20423,7 @@ def encode_strips(
 
 
 def reorient(
-    image: numpy.ndarray, orientation: ORIENTATION | int | str, /
+    image: numpy.ndarray, orientation: ORIENTATION | int | str
 ) -> numpy.ndarray:
     """Return reoriented view of image array.
 
@@ -20514,7 +20456,7 @@ def reorient(
     return image
 
 
-def repeat_nd(a: ArrayLike, repeats: Sequence[int], /) -> numpy.ndarray:
+def repeat_nd(a: ArrayLike, repeats: Sequence[int]) -> numpy.ndarray:
     """Return read-only view into input array with elements repeated.
 
     Zoom image array by integer factors using nearest neighbor interpolation
@@ -20547,18 +20489,18 @@ def repeat_nd(a: ArrayLike, repeats: Sequence[int], /) -> numpy.ndarray:
 
 @overload
 def reshape_nd(
-    data_or_shape: tuple[int, ...], ndim: int, /
+    data_or_shape: tuple[int, ...], ndim: int
 ) -> tuple[int, ...]:
     ...
 
 
 @overload
-def reshape_nd(data_or_shape: numpy.ndarray, ndim: int, /) -> numpy.ndarray:
+def reshape_nd(data_or_shape: numpy.ndarray, ndim: int) -> numpy.ndarray:
     ...
 
 
 def reshape_nd(
-    data_or_shape: tuple[int, ...] | numpy.ndarray, ndim: int, /
+    data_or_shape: tuple[int, ...] | numpy.ndarray, ndim: int
 ) -> tuple[int, ...] | numpy.ndarray:
     """Return image array or shape with at least `ndim` dimensions.
 
@@ -20592,7 +20534,6 @@ def reshape_nd(
 def squeeze_axes(
     shape: Sequence[int],
     axes: str,
-    /,
     skip: str | None = None,
 ) -> tuple[tuple[int, ...], str]:
     """Return shape and axes with length-1 dimensions removed.
@@ -20627,7 +20568,6 @@ def squeeze_axes(
 def _squeeze_axes(
     shape: Sequence[int],
     axes: str,
-    /,
     skip: str | None = None,
 ) -> tuple[tuple[int, ...], str, tuple[bool, ...]]:
     """Return shape and axes with length-1 dimensions removed.
@@ -20664,7 +20604,7 @@ def _squeeze_axes(
 
 
 def transpose_axes(
-    image: numpy.ndarray, axes: str, /, asaxes: str | None = None
+    image: numpy.ndarray, axes: str, asaxes: str | None = None
 ) -> numpy.ndarray:
     """Return image array with its axes permuted to match specified axes.
 
@@ -20710,7 +20650,6 @@ def reshape_axes(
     axes: str,
     shape: Sequence[int],
     newshape: Sequence[int],
-    /,
     unknown: str | None = None,
 ) -> str:
     """Return axes matching new shape.
@@ -20782,14 +20721,14 @@ def linspace(origin, delta, size, dtype=None, endpoint=False):
 
 @overload
 def subresolution(
-    a: TiffPage, b: TiffPage, /, p: int = 2, n: int = 16
+    a: TiffPage, b: TiffPage, p: int = 2, n: int = 16
 ) -> int | None:
     ...
 
 
 @overload
 def subresolution(
-    a: TiffPageSeries, b: TiffPageSeries, /, p: int = 2, n: int = 16
+    a: TiffPageSeries, b: TiffPageSeries, p: int = 2, n: int = 16
 ) -> int | None:
     ...
 
@@ -20797,7 +20736,6 @@ def subresolution(
 def subresolution(
     a: TiffPage | TiffPageSeries,
     b: TiffPage | TiffPageSeries,
-    /,
     p: int = 2,
     n: int = 16,
 ) -> int | None:
@@ -20829,7 +20767,7 @@ def subresolution(
 
 
 def pyramidize_series(
-    series: list[TiffPageSeries], /, isreduced: bool = False
+    series: list[TiffPageSeries], isreduced: bool = False
 ) -> None:
     """Pyramidize list of TiffPageSeries in-place.
 
@@ -20873,7 +20811,6 @@ def pyramidize_series(
 
 def stack_pages(
     pages: Sequence[TiffPage | TiffFrame | None],
-    /,
     *,
     maxworkers: int | None = None,
     out: OutputType = None,
@@ -20953,7 +20890,6 @@ def stack_pages(
         out=out,
         filecache: FileCache = filecache,
         kwargs=kwargs,
-        /,
     ) -> None:
         # read, decode, and copy page data
         if page is not None:
@@ -20978,7 +20914,6 @@ def stack_pages(
 
 def create_output(
     out: OutputType,
-    /,
     shape: Sequence[int],
     dtype: numpy.dtype | str,
     *,
@@ -21048,7 +20983,7 @@ def create_output(
     return out
 
 
-def matlabstr2py(matlabstr: str, /) -> Any:
+def matlabstr2py(matlabstr: str) -> Any:
     r"""Return Python object from Matlab string representation.
 
     Use to access ScanImage metadata.
@@ -21077,7 +21012,7 @@ def matlabstr2py(matlabstr: str, /) -> Any:
     # TODO: handle invalid input
     # TODO: review unboxing of multidimensional arrays
 
-    def lex(s: str, /) -> list[str]:
+    def lex(s: str) -> list[str]:
         # return sequence of tokens from Matlab string representation
         tokens = ['[']
         while True:
@@ -21096,7 +21031,7 @@ def matlabstr2py(matlabstr: str, /) -> Any:
         tokens.append(']')
         return tokens
 
-    def next_token(s: str, /) -> tuple[str | None, int]:
+    def next_token(s: str) -> tuple[str | None, int]:
         # return next token in Matlab string
         length = len(s)
         if length == 0:
@@ -21123,7 +21058,7 @@ def matlabstr2py(matlabstr: str, /) -> Any:
             j += 1
         return s[i:j], j
 
-    def value(s: str, fail: bool = False, /) -> Any:
+    def value(s: str, fail: bool = False) -> Any:
         # return Python value of token
         s = s.strip()
         if not s:
@@ -21171,7 +21106,7 @@ def matlabstr2py(matlabstr: str, /) -> Any:
                 raise ValueError
         return s
 
-    def parse(s: str, /) -> Any:
+    def parse(s: str) -> Any:
         # return Python value from string representation of Matlab value
         s = s.strip()
         try:
@@ -21216,7 +21151,7 @@ def matlabstr2py(matlabstr: str, /) -> Any:
 
 
 def strptime(
-    datetime_string: str, format: str | None = None, /
+    datetime_string: str, format: str | None = None
 ) -> datetime.datetime:
     """Return datetime corresponding to date string using common formats.
 
@@ -21267,21 +21202,20 @@ def strptime(
 
 @overload
 def stripnull(
-    string: bytes, /, null: bytes | None = None, *, first: bool = True
+    string: bytes, null: bytes | None = None, *, first: bool = True
 ) -> bytes:
     ...
 
 
 @overload
 def stripnull(
-    string: str, /, null: str | None = None, *, first: bool = True
+    string: str, null: str | None = None, *, first: bool = True
 ) -> str:
     ...
 
 
 def stripnull(
     string: str | bytes,
-    /,
     null: str | bytes | None = None,
     *,
     first: bool = True,
@@ -21317,7 +21251,7 @@ def stripnull(
     return string[: i + 1]
 
 
-def stripascii(string: bytes, /) -> bytes:
+def stripascii(string: bytes) -> bytes:
     r"""Return string truncated at last byte that is 7-bit ASCII.
 
     Use to clean NULL separated and terminated TIFF strings.
@@ -21342,7 +21276,6 @@ def stripascii(string: bytes, /) -> bytes:
 @overload
 def asbool(
     value: str,
-    /,
     true: Sequence[str] | None = None,
     false: Sequence[str] | None = None,
 ) -> bool:
@@ -21352,7 +21285,6 @@ def asbool(
 @overload
 def asbool(
     value: bytes,
-    /,
     true: Sequence[bytes] | None = None,
     false: Sequence[bytes] | None = None,
 ) -> bool:
@@ -21361,7 +21293,6 @@ def asbool(
 
 def asbool(
     value: str | bytes,
-    /,
     true: Sequence[str | bytes] | None = None,
     false: Sequence[str | bytes] | None = None,
 ) -> bool | bytes:
@@ -21395,7 +21326,7 @@ def asbool(
     raise TypeError
 
 
-def astype(value: Any, /, types: Sequence[Any] | None = None) -> Any:
+def astype(value: Any, types: Sequence[Any] | None = None) -> Any:
     """Return argument as one of types if possible.
 
     >>> astype('42')
@@ -21418,7 +21349,7 @@ def astype(value: Any, /, types: Sequence[Any] | None = None) -> Any:
     return value
 
 
-def rational(arg: float | tuple[int, int], /) -> tuple[int, int]:
+def rational(arg: float | tuple[int, int]) -> tuple[int, int]:
     """Return rational numerator and denominator from float or two integers."""
     from fractions import Fraction
 
@@ -21427,7 +21358,10 @@ def rational(arg: float | tuple[int, int], /) -> tuple[int, int]:
     else:
         f = Fraction.from_float(arg)
 
-    numerator, denominator = f.as_integer_ratio()
+    try:
+        numerator, denominator = f.as_integer_ratio()
+    except AttributeError:
+        numerator, denominator = f.numerator, f.denominator
     if numerator > 4294967295 or denominator > 4294967295:
         s = 4294967295 / max(numerator, denominator)
         numerator = round(numerator * s)
@@ -21435,7 +21369,7 @@ def rational(arg: float | tuple[int, int], /) -> tuple[int, int]:
     return numerator, denominator
 
 
-def unique_strings(strings: Iterator[str], /) -> Iterator[str]:
+def unique_strings(strings: Iterator[str]) -> Iterator[str]:
     """Return iterator over unique strings.
 
     >>> list(unique_strings(iter(('a', 'b', 'a'))))
@@ -21450,7 +21384,7 @@ def unique_strings(strings: Iterator[str], /) -> Iterator[str]:
         yield string
 
 
-def format_size(size: int | float, /, threshold: int | float = 1536) -> str:
+def format_size(size: int | float, threshold: int | float = 1536) -> str:
     """Return file size as string from byte size.
 
     >>> format_size(1234)
@@ -21468,7 +21402,7 @@ def format_size(size: int | float, /, threshold: int | float = 1536) -> str:
     return 'ginormous'
 
 
-def identityfunc(arg: Any, /, *args, **kwargs) -> Any:
+def identityfunc(arg: Any, *args, **kwargs) -> Any:
     """Single argument identity function.
 
     >>> identityfunc('arg')
@@ -21487,7 +21421,7 @@ def nullfunc(*args, **kwargs) -> None:
     return
 
 
-def sequence(value: Any, /) -> Sequence[Any]:
+def sequence(value: Any) -> Sequence[Any]:
     """Return tuple containing value if value is not tuple or list.
 
     >>> sequence(1)
@@ -21501,7 +21435,7 @@ def sequence(value: Any, /) -> Sequence[Any]:
     return value if isinstance(value, (tuple, list)) else (value,)
 
 
-def product(iterable: Iterable[int], /) -> int:
+def product(iterable: Iterable[int]) -> int:
     """Return product of sequence of numbers.
 
     Equivalent of ``functools.reduce(operator.mul, iterable, 1)``.
@@ -21538,7 +21472,7 @@ def peek_iterator(iterator: Iterator[Any]) -> tuple[Any, Iterator[Any]]:
     return first, newiter()
 
 
-def natural_sorted(iterable: Iterable[str], /) -> list[str]:
+def natural_sorted(iterable: Iterable[str]) -> list[str]:
     """Return human-sorted list of strings.
 
     Use to sort file names.
@@ -21548,14 +21482,14 @@ def natural_sorted(iterable: Iterable[str], /) -> list[str]:
 
     """
 
-    def sortkey(x: str, /) -> list[int | str]:
+    def sortkey(x: str) -> list[int | str]:
         return [(int(c) if c.isdigit() else c) for c in re.split(numbers, x)]
 
     numbers = re.compile(r'(\d+)')
     return sorted(iterable, key=sortkey)
 
 
-def epics_datetime(sec: int, nsec: int, /) -> datetime.datetime:
+def epics_datetime(sec: int, nsec: int) -> datetime.datetime:
     """Return datetime object from epicsTSSec and epicsTSNsec tag values.
 
     >>> epics_datetime(802117916, 103746502)
@@ -21566,7 +21500,7 @@ def epics_datetime(sec: int, nsec: int, /) -> datetime.datetime:
 
 
 def excel_datetime(
-    timestamp: float, epoch: int | None = None, /
+    timestamp: float, epoch: int | None = None
 ) -> datetime.datetime:
     """Return datetime object from timestamp in Excel serial format.
 
@@ -21582,7 +21516,7 @@ def excel_datetime(
 
 
 def julian_datetime(
-    julianday: int, milisecond: int = 0, /
+    julianday: int, milisecond: int = 0
 ) -> datetime.datetime:
     """Return datetime from days since 1/1/4713 BC and ms since midnight.
 
@@ -21594,7 +21528,7 @@ def julian_datetime(
     """
     if julianday <= 1721423:
         # return datetime.datetime.min  # ?
-        raise ValueError(f'no datetime before year 1 ({julianday=})')
+        raise ValueError(f'no datetime before year 1 (julianday={julianday})')
 
     a = julianday + 1
     if a > 2299160:
@@ -21618,7 +21552,7 @@ def julian_datetime(
     )
 
 
-def byteorder_isnative(byteorder: str, /) -> bool:
+def byteorder_isnative(byteorder: str) -> bool:
     """Return if byteorder matches system's byteorder.
 
     >>> byteorder_isnative('=')
@@ -21631,7 +21565,7 @@ def byteorder_isnative(byteorder: str, /) -> bool:
     return keys.get(byteorder, byteorder) == keys[sys.byteorder]
 
 
-def byteorder_compare(byteorder: str, other: str, /) -> bool:
+def byteorder_compare(byteorder: str, other: str) -> bool:
     """Return if byteorders match.
 
     >>> byteorder_compare('<', '<')
@@ -21649,7 +21583,7 @@ def byteorder_compare(byteorder: str, other: str, /) -> bool:
     return byteorder == other
 
 
-def recarray2dict(recarray: numpy.recarray, /) -> dict[str, Any]:
+def recarray2dict(recarray: numpy.recarray) -> dict[str, Any]:
     """Return numpy.recarray as dictionary.
 
     >>> r = numpy.array([(1., 2, 'a'), (3., 4, 'bc')],
@@ -21679,7 +21613,7 @@ def recarray2dict(recarray: numpy.recarray, /) -> dict[str, Any]:
 
 
 def xml2dict(
-    xml: str, /, sanitize: bool = True, prefix: tuple[str, str] | None = None
+    xml: str, sanitize: bool = True, prefix: tuple[str, str] | None = None
 ) -> dict[str, Any]:
     """Return XML as dictionary.
 
@@ -21703,7 +21637,7 @@ def xml2dict(
     if prefix:
         at, tx = prefix
 
-    def astype(value: Any, /) -> Any:
+    def astype(value: Any) -> Any:
         # return string value as int, float, bool, or unchanged
         if not isinstance(value, (str, bytes)):
             return value
@@ -21714,7 +21648,7 @@ def xml2dict(
                 pass
         return value
 
-    def etree2dict(t: Any, /) -> dict[str, Any]:
+    def etree2dict(t: Any) -> dict[str, Any]:
         # adapted from https://stackoverflow.com/a/10077069/453463
         key = t.tag
         if sanitize:
@@ -21748,7 +21682,6 @@ def xml2dict(
 
 def hexdump(
     data: bytes,
-    /,
     *,
     width: int = 75,
     height: int = 24,
@@ -21862,7 +21795,7 @@ def hexdump(
     return b'\n'.join(result).decode('ascii')
 
 
-def isprintable(string: str | bytes, /) -> bool:
+def isprintable(string: str | bytes) -> bool:
     r"""Return if all characters in string are printable.
 
     >>> isprintable('abc')
@@ -21885,7 +21818,7 @@ def isprintable(string: str | bytes, /) -> bool:
     return False
 
 
-def clean_whitespace(string: str, /, compact: bool = False) -> str:
+def clean_whitespace(string: str, compact: bool = False) -> str:
     r"""Return string with compressed whitespace.
 
     >>> clean_whitespace('  a  \n\n  b ')
@@ -21926,7 +21859,7 @@ def indent(*args) -> str:
     )[2:]
 
 
-def pformat_xml(xml: str | bytes, /) -> str:
+def pformat_xml(xml: str | bytes) -> str:
     """Return pretty formatted XML."""
     try:
         from lxml import etree
@@ -21951,7 +21884,6 @@ def pformat_xml(xml: str | bytes, /) -> str:
 
 def pformat(
     arg: Any,
-    /,
     *,
     width: int | None = 79,
     height: int | None = 24,
@@ -22019,7 +21951,6 @@ def pformat(
 
 def snipstr(
     string: str,
-    /,
     width: int = 79,
     *,
     snipat: int | float | None = None,
@@ -22098,7 +22029,7 @@ def snipstr(
     return '\n'.join(result)
 
 
-def enumstr(enum, /) -> str:
+def enumstr(enum) -> str:
     """Return short string representation of Enum member.
 
     >>> enumstr(PHOTOMETRIC.RGB)
@@ -22111,7 +22042,7 @@ def enumstr(enum, /) -> str:
     return name
 
 
-def enumarg(enum: type[enum.IntEnum], arg: Any, /) -> enum.IntEnum:
+def enumarg(enum: type[enum.IntEnum], arg: Any) -> enum.IntEnum:
     """Return enum member from its name or value.
 
     Parameters:
@@ -22141,7 +22072,7 @@ def enumarg(enum: type[enum.IntEnum], arg: Any, /) -> enum.IntEnum:
 
 
 def parse_kwargs(
-    kwargs: dict[str, Any], /, *keys: str, **keyvalues
+    kwargs: dict[str, Any], *keys: str, **keyvalues
 ) -> dict[str, Any]:
     """Return dict with keys from keys|keyvals and values from kwargs|keyvals.
 
@@ -22169,7 +22100,7 @@ def parse_kwargs(
     return result
 
 
-def update_kwargs(kwargs: dict[str, Any], /, **keyvalues) -> None:
+def update_kwargs(kwargs: dict[str, Any], **keyvalues) -> None:
     """Update dict with keys and values if keys do not already exist.
 
     >>> kwargs = {'one': 1, }
@@ -22193,14 +22124,14 @@ def kwargs_notnone(**kwargs) -> dict[str, Any]:
     return dict(item for item in kwargs.items() if item[1] is not None)
 
 
-def log_warning(msg: str, /, *args, **kwargs) -> None:
+def log_warning(msg: str, *args, **kwargs) -> None:
     """Log message with level WARNING."""
     import logging
 
     logging.getLogger(__name__).warning(msg, *args, **kwargs)
 
 
-def log_debug(msg: str, /, *args, **kwargs) -> None:
+def log_debug(msg: str, *args, **kwargs) -> None:
     """Log message with level DEBUG."""
     import logging
 
@@ -22209,7 +22140,6 @@ def log_debug(msg: str, /, *args, **kwargs) -> None:
 
 def validate_jhove(
     filename: str,
-    /,
     jhove: str | None = None,
     ignore: Collection[str] | None = None,
 ) -> None:
@@ -22258,7 +22188,6 @@ def validate_jhove(
 
 def tiffcomment(
     arg: str | os.PathLike | FileHandle | BinaryIO,
-    /,
     comment: str | bytes | None = None,
     pageindex: int | None = None,
     tagcode: int | str | None = None,
@@ -22304,7 +22233,6 @@ def tiffcomment(
 
 def tiff2fsspec(
     filename: str | os.PathLike,
-    /,
     url: str,
     *,
     out: str | None = None,
@@ -22356,7 +22284,6 @@ def tiff2fsspec(
 
 def lsm2bin(
     lsmfile: str,
-    /,
     binfile: str | None = None,
     *,
     tile: tuple[int, int] | None = None,
@@ -22452,7 +22379,6 @@ def lsm2bin(
 
 def imshow(
     data: numpy.ndarray,
-    /,
     *,
     photometric: PHOTOMETRIC | int | str | None = None,
     planarconfig: PLANARCONFIG | int | str | None = None,
@@ -22716,7 +22642,7 @@ def imshow(
     if not isrgb:
         pyplot.colorbar()  # panchor=(0.55, 0.5), fraction=0.05
 
-    def format_coord(x: float, y: float, /) -> str:
+    def format_coord(x: float, y: float) -> str:
         # callback function to format coordinate display in toolbar
         x = int(x + 0.5)
         y = int(y + 0.5)
@@ -22970,7 +22896,7 @@ def main() -> int:
         if not settings.quiet:
             print('Reading image data:', end=' ', flush=True)
 
-        def notnone(x, /):
+        def notnone(x):
             return next(i for i in x if i is not None)
 
         timer.start()
@@ -23105,7 +23031,7 @@ def main() -> int:
 
 
 def bytes2str(
-    b: bytes, /, encoding: str | None = None, errors: str = 'strict'
+    b: bytes, encoding: str | None = None, errors: str = 'strict'
 ) -> str:
     """Return Unicode string from encoded bytes."""
     if encoding is not None:
@@ -23116,7 +23042,7 @@ def bytes2str(
         return b.decode('cp1252', errors)
 
 
-def bytestr(s: str | bytes, /, encoding: str = 'cp1252') -> bytes:
+def bytestr(s: str | bytes, encoding: str = 'cp1252') -> bytes:
     """Return bytes from Unicode string, else pass through."""
     return s.encode(encoding) if isinstance(s, str) else s
 

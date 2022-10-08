@@ -55,7 +55,10 @@ __all__ = [
     'zlib_encode',
 ]
 
-from typing import Any, Literal, overload
+
+from typing import TYPE_CHECKING, overload
+if TYPE_CHECKING:
+    from typing import Any, Literal
 
 import numpy
 
@@ -63,28 +66,28 @@ try:
     import lzma
 
     def lzma_encode(
-        data: bytes | numpy.ndarray, /, level: int | None = None, *, out=None
+        data: bytes | numpy.ndarray, level: int | None = None, *, out=None
     ) -> bytes:
         """Compress LZMA."""
         if isinstance(data, numpy.ndarray):
             data = data.tobytes()
         return lzma.compress(data)
 
-    def lzma_decode(data: bytes, /, *, out=None) -> bytes:
+    def lzma_decode(data: bytes, *, out=None) -> bytes:
         """Decompress LZMA."""
         return lzma.decompress(data)
 
 except ImportError:
     # Python was built without lzma
     def lzma_encode(
-        data: bytes | numpy.ndarray, /, level: int | None = None, *, out=None
+        data: bytes | numpy.ndarray, level: int | None = None, *, out=None
     ) -> bytes:
         """Raise ImportError."""
         import lzma  # noqa
 
         return b''
 
-    def lzma_decode(data: bytes, /, *, out=None) -> bytes:
+    def lzma_decode(data: bytes, *, out=None) -> bytes:
         """Raise ImportError."""
         import lzma  # noqa
 
@@ -95,14 +98,14 @@ try:
     import zlib
 
     def zlib_encode(
-        data: bytes | numpy.ndarray, /, level: int | None = None, *, out=None
+        data: bytes | numpy.ndarray, level: int | None = None, *, out=None
     ) -> bytes:
         """Compress Zlib DEFLATE."""
         if isinstance(data, numpy.ndarray):
             data = data.tobytes()
         return zlib.compress(data, 6 if level is None else level)
 
-    def zlib_decode(data: bytes, /, *, out=None) -> bytes:
+    def zlib_decode(data: bytes, *, out=None) -> bytes:
         """Decompress Zlib DEFLATE."""
         return zlib.decompress(data)
 
@@ -110,21 +113,21 @@ except ImportError:
     # Python was built without zlib
 
     def zlib_encode(
-        data: bytes | numpy.ndarray, /, level: int | None = None, *, out=None
+        data: bytes | numpy.ndarray, level: int | None = None, *, out=None
     ) -> bytes:
         """Raise ImportError."""
         import zlib  # noqa
 
         return b''
 
-    def zlib_decode(data: bytes, /, *, out=None) -> bytes:
+    def zlib_decode(data: bytes, *, out=None) -> bytes:
         """Raise ImportError."""
         import zlib  # noqa
 
         return b''
 
 
-def packbits_decode(encoded: bytes, /, *, out=None) -> bytes:
+def packbits_decode(encoded: bytes, *, out=None) -> bytes:
     r"""Decompress PackBits encoded byte string.
 
     >>> packbits_decode(b'\x80\x80')  # NOP
@@ -159,21 +162,20 @@ def packbits_decode(encoded: bytes, /, *, out=None) -> bytes:
 
 @overload
 def delta_encode(
-    data: bytes | bytearray, /, axis: int = -1, dist: int = 1, *, out=None
+    data: bytes | bytearray, axis: int = -1, dist: int = 1, *, out=None
 ) -> bytes:
     ...
 
 
 @overload
 def delta_encode(
-    data: numpy.ndarray, /, axis: int = -1, dist: int = 1, *, out=None
+    data: numpy.ndarray, axis: int = -1, dist: int = 1, *, out=None
 ) -> numpy.ndarray:
     ...
 
 
 def delta_encode(
     data: bytes | bytearray | numpy.ndarray,
-    /,
     axis: int = -1,
     dist: int = 1,
     *,
@@ -182,7 +184,7 @@ def delta_encode(
     """Encode Delta."""
     if dist != 1:
         raise NotImplementedError(
-            f"delta_encode with {dist=} requires the 'imagecodecs' package"
+            f"delta_encode with dist={dist} requires the 'imagecodecs' package"
         )
     if isinstance(data, (bytes, bytearray)):
         data = numpy.frombuffer(data, dtype=numpy.uint8)
@@ -205,21 +207,20 @@ def delta_encode(
 
 @overload
 def delta_decode(
-    data: bytes | bytearray, /, axis: int, dist: int, *, out: Any
+    data: bytes | bytearray, axis: int, dist: int, *, out: Any
 ) -> bytes:
     ...
 
 
 @overload
 def delta_decode(
-    data: numpy.ndarray, /, axis: int, dist: int, *, out: Any
+    data: numpy.ndarray, axis: int, dist: int, *, out: Any
 ) -> numpy.ndarray:
     ...
 
 
 def delta_decode(
     data: bytes | bytearray | numpy.ndarray,
-    /,
     axis: int = -1,
     dist: int = 1,
     *,
@@ -228,7 +229,7 @@ def delta_decode(
     """Decode Delta."""
     if dist != 1:
         raise NotImplementedError(
-            f"delta_decode with {dist=} requires the 'imagecodecs' package"
+            f"delta_decode with dist={dist} requires the 'imagecodecs' package"
         )
     if out is not None and not out.flags.writeable:
         out = None
@@ -249,21 +250,20 @@ def delta_decode(
 
 @overload
 def bitorder_decode(
-    data: bytes | bytearray, /, *, out=None, _bitorder: list[Any] = []
+    data: bytes | bytearray, *, out=None, _bitorder: list[Any] = []
 ) -> bytes:
     ...
 
 
 @overload
 def bitorder_decode(
-    data: numpy.ndarray, /, *, out=None, _bitorder: list[Any] = []
+    data: numpy.ndarray, *, out=None, _bitorder: list[Any] = []
 ) -> numpy.ndarray:
     ...
 
 
 def bitorder_decode(
     data: bytes | bytearray | numpy.ndarray,
-    /,
     *,
     out=None,
     _bitorder: list[Any] = [],
@@ -320,7 +320,6 @@ def bitorder_decode(
 
 def packints_decode(
     data: bytes,
-    /,
     dtype: numpy.dtype | str,
     bitspersample: int,
     runlen: int = 0,
@@ -363,7 +362,7 @@ def packints_decode(
 
 
 def packints_encode(
-    data: numpy.ndarray, /, bitspersample: int, axis: int = -1, *, out=None
+    data: numpy.ndarray, bitspersample: int, axis: int = -1, *, out=None
 ) -> bytes:
     """Tightly pack integers."""
     raise NotImplementedError(
@@ -372,7 +371,7 @@ def packints_encode(
 
 
 def float24_decode(
-    data: bytes, /, byteorder: Literal['>', '<']
+    data: bytes, byteorder: Literal['>', '<']
 ) -> numpy.ndarray:
     """Return float32 array from float24."""
     raise NotImplementedError(

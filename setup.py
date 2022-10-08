@@ -81,8 +81,9 @@ setup(
         # 'Documentation': 'https://',
     },
     packages=['tifffile'],
-    python_requires='>=3.8',
+    python_requires='>=3.7',
     install_requires=[
+        'cached_property; python_version < "3.8"',
         'numpy>=1.19.2',
         # 'imagecodecs>=2022.2.22',
     ],
